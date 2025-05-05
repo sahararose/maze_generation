@@ -2,97 +2,173 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Mickey Mouse Maze Game</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mickey Mouse Maze Adventure</title>
     <style>
-        body { font-family: Arial, sans-serif; text-align: center; margin: 20px; }
-        canvas { border: 1px solid #000; margin-top: 20px; background: white; }
-        button { padding: 8px 15px; margin: 5px; cursor: pointer; }
-        .instructions { text-align: left; margin: 20px auto; max-width: 600px; padding: 15px; background: #f8f8f8; border-radius: 5px; }
+        body {
+            font-family: 'Comic Sans MS', Arial, sans-serif;
+            text-align: center;
+            margin: 20px;
+            background: linear-gradient(to bottom, #f0f8ff, #add8e6);
+            color: #333;
+        }
+        h1 {
+            font-size: 2.5em;
+            color: #d40000;
+            text-shadow: 2px 2px #ffd700;
+        }
+        canvas {
+            border: 3px solid #ffd700;
+            border-radius: 10px;
+            margin: 20px auto;
+            background: #fff;
+            box-shadow: 0 0 20px rgba(0,0,0,0.2);
+            display: block;
+        }
+        .controls {
+            margin: 10px 0;
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        select, button {
+            padding: 10px 20px;
+            font-size: 1em;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            background: #ffd700;
+            color: #d40000;
+            font-weight: bold;
+            transition: transform 0.2s, background 0.2s;
+        }
+        select:hover, button:hover {
+            background: #ff4500;
+            color: #fff;
+            transform: scale(1.05);
+        }
+        #message {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #d40000;
+            margin: 10px 0;
+        }
+        .instructions {
+            max-width: 600px;
+            margin: 20px auto;
+            padding: 20px;
+            background: #fff;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            text-align: left;
+        }
+        .instructions h2 {
+            color: #d40000;
+        }
+        .instructions li {
+            margin: 10px 0;
+        }
+        .score-board {
+            font-size: 1.1em;
+            margin: 10px 0;
+            color: #333;
+        }
     </style>
 </head>
 <body>
-    <h1>Mickey Mouse Maze Game</h1>
-    
-    <div>
+    <h1>Mickey Mouse Maze Adventure</h1>
+    <div class="score-board">
+        Moves: <span id="moveCount">0</span> | Time: <span id="timer">00:00</span> | Level: <span id="level">1</span>
+    </div>
+    <div class="controls">
         <select id="mazeSize">
-            <option value="10">10×10</option>
-            <option value="15" selected>15×15</option>
-            <option value="20">20×20</option>
+            <option value="10">10×10 (Easy)</option>
+            <option value="15" selected>15×15 (Medium)</option>
+            <option value="20">20×20 (Hard)</option>
         </select>
-        <button id="generateBtn">Generate Maze</button>
+        <button id="generateBtn">New Maze</button>
         <button id="setStartBtn">Set Start</button>
         <button id="setEndBtn">Set End</button>
-        <button id="resetBtn">Reset Game</button>
+        <button id="resetBtn">Reset</button>
+        <button id="solveBtn">Show Solution</button>
     </div>
-    
     <canvas id="mazeCanvas" width="600" height="600"></canvas>
-    <div id="message" style="font-weight:bold;color:red;"></div>
-    
+    <div id="message"></div>
     <div class="instructions">
         <h2>How to Play:</h2>
         <ol>
-            <li><strong>Generate Maze</strong>: Select size and click "Generate Maze"</li>
-            <li><strong>Set Start Point</strong>: Click "Set Start" then click on maze</li>
-            <li><strong>Set End Point</strong>: Click "Set End" then click on maze</li>
-            <li><strong>Move Mickey</strong>:
+            <li><strong>Generate Maze</strong>: Choose a size and click "New Maze".</li>
+            <li><strong>Set Start</strong>: Click "Set Start" and select a cell for Mickey.</li>
+            <li><strong>Set End</strong>: Click "Set End" and choose the goal cell (★).</li>
+            <li><strong>Navigate</strong>:
                 <ul>
-                    <li>Drag with mouse (click and hold on Mickey)</li>
-                    <li>OR use keyboard arrows/WASD keys</li>
+                    <li>Drag Mickey with your mouse.</li>
+                    <li>Or use Arrow keys/WASD.</li>
                 </ul>
             </li>
-            <li><strong>Complete the Maze</strong>: Reach the red ★ to win</li>
-            <li><strong>Reset</strong>: Click "Reset Game" to start over</li>
+            <li><strong>Win</strong>: Guide Mickey to the red ★ to complete the maze!</li>
+            <li><strong>Extras</strong>:
+                <ul>
+                    <li>Use "Show Solution" to see the shortest path.</li>
+                    <li>Track your moves and time in the score board.</li>
+                    <li>Reset or start a new maze anytime!</li>
+                </ul>
+            </li>
         </ol>
     </div>
 
     <script>
-        // Game elements
         const canvas = document.getElementById('mazeCanvas');
         const ctx = canvas.getContext('2d');
         const msg = document.getElementById('message');
-        
-        // Game state
+        const moveCountDisplay = document.getElementById('moveCount');
+        const timerDisplay = document.getElementById('timer');
+        const levelDisplay = document.getElementById('level');
+
         let maze = [], mazeSize = 15, cellSize = 40;
         let start = null, end = null, mickey = null, path = [];
-        
-        // Initialize game
+        let moves = 0, timer = 0, level = 1, timerInterval = null;
+        let isDragging = false, showSolution = false;
+
         function initGame() {
             mazeSize = parseInt(document.getElementById('mazeSize').value);
             cellSize = 600 / mazeSize;
-            
-            // Reset all game state
             start = end = mickey = null;
             path = [];
-            msg.textContent = '';
-            
-            // Generate new maze
+            moves = 0;
+            timer = 0;
+            showSolution = false;
+            msg.textContent = 'Set start and end points to begin!';
+            moveCountDisplay.textContent = '0';
+            timerDisplay.textContent = '00:00';
+            levelDisplay.textContent = level;
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(updateTimer, 1000);
             generateMaze();
             drawMaze();
         }
-        
-        // Maze generation algorithm
+
         function generateMaze() {
             maze = Array(mazeSize).fill().map(() => 
                 Array(mazeSize).fill().map(() => ({
                     top: true, right: true, bottom: true, left: true, visited: false
                 }))
             );
-            
-            let stack = [], current = {x:0, y:0};
+            let stack = [], current = {x: 0, y: 0};
             maze[0][0].visited = true;
             stack.push(current);
-            
-            while(stack.length > 0) {
+
+            while (stack.length > 0) {
                 let neighbors = [];
                 const {x, y} = current;
+                if (y > 0 && !maze[y-1][x].visited) neighbors.push({x, y: y-1, wall: 'top'});
+                if (x < mazeSize-1 && !maze[y][x+1].visited) neighbors.push({x: x+1, y, wall: 'right'});
+                if (y < mazeSize-1 && !maze[y+1][x].visited) neighbors.push({x, y: y+1, wall: 'bottom'});
+                if (x > 0 && !maze[y][x-1].visited) neighbors.push({x: x-1, y, wall: 'left'});
                 
-                if(y>0 && !maze[y-1][x].visited) neighbors.push({x, y:y-1, wall:'top'});
-                if(x<mazeSize-1 && !maze[y][x+1].visited) neighbors.push({x:x+1, y, wall:'right'});
-                if(y<mazeSize-1 && !maze[y+1][x].visited) neighbors.push({x, y:y+1, wall:'bottom'});
-                if(x>0 && !maze[y][x-1].visited) neighbors.push({x:x-1, y, wall:'left'});
-                
-                if(neighbors.length > 0) {
-                    const next = neighbors[Math.floor(Math.random()*neighbors.length)];
+                if (neighbors.length > 0) {
+                    const next = neighbors[Math.floor(Math.random() * neighbors.length)];
                     maze[current.y][current.x][next.wall] = false;
                     maze[next.y][next.x][
                         next.wall === 'top' ? 'bottom' :
@@ -101,154 +177,214 @@
                     ] = false;
                     maze[next.y][next.x].visited = true;
                     stack.push(current);
-                    current = {x:next.x, y:next.y};
+                    current = {x: next.x, y: next.y};
                 } else {
                     current = stack.pop();
                 }
             }
         }
-        
-        // Draw Mickey Mouse head
+
         function drawMickey(x, y) {
             const headRadius = cellSize * 0.4;
             const earRadius = cellSize * 0.25;
-            const centerX = x * cellSize + cellSize/2;
-            const centerY = y * cellSize + cellSize/2;
-            
-            // Head (black)
+            const centerX = x * cellSize + cellSize / 2;
+            const centerY = y * cellSize + cellSize / 2;
+
+            // Shadow
+            ctx.fillStyle = 'rgba(0,0,0,0.2)';
+            ctx.beginPath();
+            ctx.arc(centerX + 3, centerY + 3, headRadius, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Head
             ctx.fillStyle = '#000';
             ctx.beginPath();
             ctx.arc(centerX, centerY, headRadius, 0, Math.PI * 2);
             ctx.fill();
-            
-            // Ears (black)
+
+            // Ears
             ctx.beginPath();
-            ctx.arc(centerX - headRadius*0.7, centerY - headRadius*0.7, earRadius, 0, Math.PI * 2);
-            ctx.arc(centerX + headRadius*0.7, centerY - headRadius*0.7, earRadius, 0, Math.PI * 2);
+            ctx.arc(centerX - headRadius * 0.7, centerY - headRadius * 0.7, earRadius, 0, Math.PI * 2);
+            ctx.arc(centerX + headRadius * 0.7, centerY - headRadius * 0.7, earRadius, 0, Math.PI * 2);
             ctx.fill();
-            
-            // Face (white)
+
+            // Face
             ctx.fillStyle = '#fff';
             ctx.beginPath();
-            ctx.arc(centerX, centerY, headRadius*0.8, 0, Math.PI * 2);
+            ctx.arc(centerX, centerY, headRadius * 0.8, 0, Math.PI * 2);
             ctx.fill();
-            
-            // Eyes (black)
+
+            // Eyes
             ctx.fillStyle = '#000';
             ctx.beginPath();
-            ctx.arc(centerX - headRadius*0.2, centerY - headRadius*0.1, headRadius*0.1, 0, Math.PI * 2);
-            ctx.arc(centerX + headRadius*0.2, centerY - headRadius*0.1, headRadius*0.1, 0, Math.PI * 2);
+            ctx.arc(centerX - headRadius * 0.2, centerY - headRadius * 0.1, headRadius * 0.1, 0, Math.PI * 2);
+            ctx.arc(centerX + headRadius * 0.2, centerY - headRadius * 0.1, headRadius * 0.1, 0, Math.PI * 2);
             ctx.fill();
-            
-            // Nose (black)
+
+            // Nose
             ctx.beginPath();
-            ctx.arc(centerX, centerY + headRadius*0.1, headRadius*0.15, 0, Math.PI * 2);
+            ctx.arc(centerX, centerY + headRadius * 0.1, headRadius * 0.15, 0, Math.PI * 2);
             ctx.fill();
-            
-            // Smile (black)
+
+            // Smile
             ctx.strokeStyle = '#000';
             ctx.lineWidth = 2;
             ctx.beginPath();
-            ctx.arc(centerX, centerY, headRadius*0.5, 0.2 * Math.PI, 0.8 * Math.PI);
+            ctx.arc(centerX, centerY, headRadius * 0.5, 0.2 * Math.PI, 0.8 * Math.PI);
             ctx.stroke();
         }
-        
-        // Draw the maze
+
         function drawMaze() {
             ctx.clearRect(0, 0, 600, 600);
-            
-            // Draw walls
-            ctx.strokeStyle = '#000';
-            ctx.lineWidth = 2;
-            for(let y=0; y<mazeSize; y++) {
-                for(let x=0; x<mazeSize; x++) {
+
+            // Background grid
+            ctx.fillStyle = '#f0f8ff';
+            ctx.fillRect(0, 0, 600, 600);
+
+            // Walls
+            ctx.strokeStyle = '#00008b';
+            ctx.lineWidth = 4;
+            for (let y = 0; y < mazeSize; y++) {
+                for (let x = 0; x < mazeSize; x++) {
                     const cell = maze[y][x];
-                    if(cell.top) ctx.strokeRect(x*cellSize, y*cellSize, cellSize, 0);
-                    if(cell.right) ctx.strokeRect((x+1)*cellSize, y*cellSize, 0, cellSize);
-                    if(cell.bottom) ctx.strokeRect(x*cellSize, (y+1)*cellSize, cellSize, 0);
-                    if(cell.left) ctx.strokeRect(x*cellSize, y*cellSize, 0, cellSize);
+                    if (cell.top) {
+                        ctx.beginPath();
+                        ctx.moveTo(x * cellSize, y * cellSize);
+                        ctx.lineTo((x + 1) * cellSize, y * cellSize);
+                        ctx.stroke();
+                    }
+                    if (cell.right) {
+                        ctx.beginPath();
+                        ctx.moveTo((x + 1) * cellSize, y * cellSize);
+                        ctx.lineTo((x + 1) * cellSize, (y + 1) * cellSize);
+                        ctx.stroke();
+                    }
+                    if (cell.bottom) {
+                        ctx.beginPath();
+                        ctx.moveTo(x * cellSize, (y + 1) * cellSize);
+                        ctx.lineTo((x + 1) * cellSize, (y + 1) * cellSize);
+                        ctx.stroke();
+                    }
+                    if (cell.left) {
+                        ctx.beginPath();
+                        ctx.moveTo(x * cellSize, y * cellSize);
+                        ctx.lineTo(x * cellSize, (y + 1) * cellSize);
+                        ctx.stroke();
+                    }
                 }
             }
-            
-            // Draw end point
-            if(end) {
-                ctx.fillStyle = 'rgba(255,0,0,0.3)';
-                ctx.fillRect(end.x*cellSize, end.y*cellSize, cellSize, cellSize);
-                ctx.fillStyle = 'red';
-                ctx.font = `bold ${cellSize*0.6}px Arial`;
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText('★', end.x*cellSize+cellSize/2, end.y*cellSize+cellSize/2);
+
+            // Solution path
+            if (showSolution && start && end) {
+                const solution = findShortestPath();
+                if (solution.length > 0) {
+                    ctx.strokeStyle = 'rgba(255,165,0,0.5)';
+                    ctx.lineWidth = cellSize / 4;
+                    ctx.beginPath();
+                    ctx.moveTo(solution[0].x * cellSize + cellSize / 2, solution[0].y * cellSize + cellSize / 2);
+                    for (let i = 1; i < solution.length; i++) {
+                        ctx.lineTo(solution[i].x * cellSize + cellSize / 2, solution[i].y * cellSize + cellSize / 2);
+                    }
+                    ctx.stroke();
+                }
             }
-            
-            // Draw path
-            if(path.length > 1) {
-                ctx.strokeStyle = 'red';
-                ctx.lineWidth = cellSize/5;
+
+            // Player path
+            if (path.length > 1) {
+                ctx.strokeStyle = '#ff4500';
+                ctx.lineWidth = cellSize / 5;
                 ctx.beginPath();
-                ctx.moveTo(
-                    path[0].x*cellSize + cellSize/2, 
-                    path[0].y*cellSize + cellSize/2
-                );
-                for(let i=1; i<path.length; i++) {
-                    ctx.lineTo(
-                        path[i].x*cellSize + cellSize/2,
-                        path[i].y*cellSize + cellSize/2
-                    );
+                ctx.moveTo(path[0].x * cellSize + cellSize / 2, path[0].y * cellSize + cellSize / 2);
+                for (let i = 1; i < path.length; i++) {
+                    ctx.lineTo(path[i].x * cellSize + cellSize / 2, path[i].y * cellSize + cellSize / 2);
                 }
                 ctx.stroke();
             }
-            
-            // Draw Mickey Mouse
-            if(mickey) {
+
+            // End point
+            if (end) {
+                ctx.fillStyle = 'rgba(255,0,0,0.2)';
+                ctx.fillRect(end.x * cellSize, end.y * cellSize, cellSize, cellSize);
+                ctx.fillStyle = '#d40000';
+                ctx.font = `bold ${cellSize * 0.6}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('★', end.x * cellSize + cellSize / 2, end.y * cellSize + cellSize / 2);
+            }
+
+            // Mickey
+            if (mickey) {
                 drawMickey(mickey.x, mickey.y);
             }
         }
-        
-        // Check valid moves
+
         function canMove(fromX, fromY, toX, toY) {
-            if(toX<0 || toX>=mazeSize || toY<0 || toY>=mazeSize) return false;
-            
+            if (toX < 0 || toX >= mazeSize || toY < 0 || toY >= mazeSize) return false;
             const dx = toX - fromX;
             const dy = toY - fromY;
-            
-            if(dx===1 && maze[fromY][fromX].right) return false;
-            if(dx===-1 && maze[fromY][fromX].left) return false;
-            if(dy===1 && maze[fromY][fromX].bottom) return false;
-            if(dy===-1 && maze[fromY][fromX].top) return false;
-            
+            if (dx === 1 && maze[fromY][fromX].right) return false;
+            if (dx === -1 && maze[fromY][fromX].left) return false;
+            if (dy === 1 && maze[fromY][fromX].bottom) return false;
+            if (dy === -1 && maze[fromY][fromX].top) return false;
             return true;
         }
-        
-        // Move Mickey
+
         function moveMickey(dx, dy) {
-            if(!mickey) return false;
-            
+            if (!mickey) return false;
             const newX = mickey.x + dx;
             const newY = mickey.y + dy;
-            
-            if(canMove(mickey.x, mickey.y, newX, newY)) {
-                // Handle path backtracking
-                if(path.length>1 && path[path.length-2].x===newX && path[path.length-2].y===newY) {
+            if (canMove(mickey.x, mickey.y, newX, newY)) {
+                if (path.length > 1 && path[path.length - 2]?.x === newX && path[path.length - 2]?.y === newY) {
                     path.pop();
                 } else {
-                    path.push({x:newX, y:newY});
+                    path.push({x: newX, y: newY});
                 }
-                
-                mickey = {x:newX, y:newY};
-                
-                // Check win condition
-                if(end && mickey.x===end.x && mickey.y===end.y) {
-                    msg.textContent = 'Congratulations! You solved the maze!';
+                mickey = {x: newX, y: newY};
+                moves++;
+                moveCountDisplay.textContent = moves;
+                if (end && mickey.x === end.x && mickey.y === end.y) {
+                    clearInterval(timerInterval);
+                    msg.textContent = `You did it! Level ${level} complete! Moves: ${moves}, Time: ${formatTime(timer)}`;
+                    level++;
+                    setTimeout(() => {
+                        initGame();
+                    }, 2000);
                 }
-                
                 drawMaze();
                 return true;
             }
             return false;
         }
-        
-        // Get mouse position
+
+        function findShortestPath() {
+            if (!start || !end) return [];
+            const queue = [{x: start.x, y: start.y, path: [{x: start.x, y: start.y}]}];
+            const visited = Array(mazeSize).fill().map(() => Array(mazeSize).fill(false));
+            visited[start.y][start.x] = true;
+
+            while (queue.length > 0) {
+                const {x, y, path} = queue.shift();
+                if (x === end.x && y === end.y) return path;
+
+                const directions = [
+                    {dx: 0, dy: -1, wall: 'top'},
+                    {dx: 1, dy: 0, wall: 'right'},
+                    {dx: 0, dy: 1, wall: 'bottom'},
+                    {dx: -1, dy: 0, wall: 'left'}
+                ];
+
+                for (const {dx, dy, wall} of directions) {
+                    const newX = x + dx;
+                    const newY = y + dy;
+                    if (newX >= 0 && newX < mazeSize && newY >= 0 && newY < mazeSize && !visited[newY][newX] && !maze[y][x][wall]) {
+                        visited[newY][newX] = true;
+                        queue.push({x: newX, y: newY, path: [...path, {x: newX, y: newY}]});
+                    }
+                }
+            }
+            return [];
+        }
+
         function getMousePos(e) {
             const rect = canvas.getBoundingClientRect();
             return {
@@ -256,95 +392,112 @@
                 y: Math.floor((e.clientY - rect.top) / cellSize)
             };
         }
-        
-        // Check if clicked on Mickey
+
         function isMickeyClicked(x, y) {
-            if(!mickey) return false;
-            const centerX = mickey.x * cellSize + cellSize/2;
-            const centerY = mickey.y * cellSize + cellSize/2;
-            const radius = cellSize * 0.5; // Larger click area for better UX
-            
-            const clickX = x * cellSize + cellSize/2;
-            const clickY = y * cellSize + cellSize/2;
-            
-            const distance = Math.sqrt(
-                Math.pow(clickX - centerX, 2) + 
-                Math.pow(clickY - centerY, 2)
-            );
-            
+            if (!mickey) return false;
+            const centerX = mickey.x * cellSize + cellSize / 2;
+            const centerY = mickey.y * cellSize + cellSize / 2;
+            const radius = cellSize * 0.5;
+            const clickX = x * cellSize + cellSize / 2;
+            const clickY = y * cellSize + cellSize / 2;
+            const distance = Math.sqrt(Math.pow(clickX - centerX, 2) + Math.pow(clickY - centerY, 2));
             return distance <= radius;
         }
-        
-        // Event listeners
+
+        function updateTimer() {
+            timer++;
+            timerDisplay.textContent = formatTime(timer);
+        }
+
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60).toString().padStart(2, '0');
+            const secs = (seconds % 60).toString().padStart(2, '0');
+            return `${mins}:${secs}`;
+        }
+
+        // Event Listeners
         document.getElementById('generateBtn').addEventListener('click', initGame);
-        
-        document.getElementById('setStartBtn').addEventListener('click', function() {
-            msg.textContent = 'Click on maze to set Mickey\'s start position';
-            canvas.onclick = function(e) {
+
+        document.getElementById('setStartBtn').addEventListener('click', () => {
+            msg.textContent = 'Click a cell to place Mickey.';
+            canvas.onclick = (e) => {
                 const pos = getMousePos(e);
                 start = mickey = pos;
                 path = [pos];
                 canvas.onclick = null;
-                msg.textContent = 'Start set. Now set end point';
+                msg.textContent = 'Start set. Now place the end point.';
                 drawMaze();
             };
         });
-        
-        document.getElementById('setEndBtn').addEventListener('click', function() {
-            msg.textContent = 'Click on maze to set end position';
-            canvas.onclick = function(e) {
+
+        document.getElementById('setEndBtn').addEventListener('click', () => {
+            msg.textContent = 'Click a cell to set the end point.';
+            canvas.onclick = (e) => {
                 const pos = getMousePos(e);
+                if (pos.x === start?.x && pos.y === start?.y) {
+                    msg.textContent = 'End point cannot be the same as start point!';
+                    return;
+                }
                 end = pos;
                 canvas.onclick = null;
-                msg.textContent = 'End set. Start playing!';
+                msg.textContent = 'End set. Guide Mickey to the star!';
                 drawMaze();
             };
         });
-        
-        document.getElementById('resetBtn').addEventListener('click', function() {
+
+        document.getElementById('resetBtn').addEventListener('click', () => {
             initGame();
-            msg.textContent = 'Game reset. Set Mickey\'s start and end points';
+            msg.textContent = 'Game reset. Set start and end points.';
         });
-        
-        // Mouse drag controls
-        canvas.addEventListener('mousedown', function(e) {
-            if(!mickey) return;
-            
+
+        document.getElementById('solveBtn').addEventListener('click', () => {
+            if (!start || !end) {
+                msg.textContent = 'Please set start and end points first!';
+                return;
+            }
+            showSolution = !showSolution;
+            msg.textContent = showSolution ? 'Solution path shown.' : 'Solution path hidden.';
+            drawMaze();
+        });
+
+        canvas.addEventListener('mousedown', (e) => {
+            if (!mickey) return;
             const pos = getMousePos(e);
-            if(isMickeyClicked(pos.x, pos.y)) {
-                canvas.onmousemove = function(e) {
+            if (isMickeyClicked(pos.x, pos.y)) {
+                isDragging = true;
+                canvas.onmousemove = (e) => {
+                    if (!isDragging) return;
                     const newPos = getMousePos(e);
                     const dx = newPos.x - mickey.x;
                     const dy = newPos.y - mickey.y;
-                    
-                    if(Math.abs(dx) + Math.abs(dy) === 1) {
+                    if (Math.abs(dx) + Math.abs(dy) === 1) {
                         moveMickey(dx, dy);
                     }
                 };
             }
         });
-        
-        canvas.addEventListener('mouseup', function() {
+
+        canvas.addEventListener('mouseup', () => {
+            isDragging = false;
             canvas.onmousemove = null;
         });
-        
-        canvas.addEventListener('mouseleave', function() {
+
+        canvas.addEventListener('mouseleave', () => {
+            isDragging = false;
             canvas.onmousemove = null;
         });
-        
-        // Keyboard controls
-        document.addEventListener('keydown', function(e) {
-            if(!mickey) return;
-            
-            switch(e.key) {
-                case 'ArrowUp': case 'w': moveMickey(0, -1); break;
-                case 'ArrowRight': case 'd': moveMickey(1, 0); break;
-                case 'ArrowDown': case 's': moveMickey(0, 1); break;
-                case 'ArrowLeft': case 'a': moveMickey(-1, 0); break;
+
+        document.addEventListener('keydown', (e) => {
+            if (!mickey) return;
+            switch (e.key.toLowerCase()) {
+                case 'arrowup': case 'w': moveMickey(0, -1); break;
+                case 'arrowright': case 'd': moveMickey(1, 0); break;
+                case 'arrowdown': case 's': moveMickey(0, 1); break;
+                case 'arrowleft': case 'a': moveMickey(-1, 0); break;
             }
         });
-        
-        // Initialize game
+
+        // Initialize
         initGame();
     </script>
 </body>
